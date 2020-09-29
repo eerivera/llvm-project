@@ -126,6 +126,8 @@ FunctionPass *createControlHeightReductionLegacyPass();
 // scalar-to-vector mappings from the TargetLibraryInfo.
 //
 FunctionPass *createInjectTLIMappingsLegacyPass();
+
+ModulePass *createFakePtrPass();
 }
 
 #endif
