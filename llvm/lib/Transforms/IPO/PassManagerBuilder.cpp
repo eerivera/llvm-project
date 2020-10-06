@@ -152,6 +152,10 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
+static cl::opt<bool> EnableUseFakePtr(
+    "use-fakeptr", cl::init(false), cl::Hidden,
+    cl::desc("man I really hope it's this simple"));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -180,6 +184,7 @@ PassManagerBuilder::PassManagerBuilder() {
     PrepareForThinLTO = EnablePrepareForThinLTO;
     PerformThinLTO = EnablePerformThinLTO;
     DivergentTarget = false;
+    UseFakePtr = EnableUseFakePtr;
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -483,6 +488,10 @@ void PassManagerBuilder::populateModulePassManager(
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
 
+  if (UseFakePtr) {
+    MPM.add(createFakePtrPass());
+  }
+
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
@@ -491,8 +500,6 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(Inliner);
       Inliner = nullptr;
     }
-
-    MPM.add(createFakePtrPass());
 
     // FIXME: The BarrierNoopPass is a HACK! The inliner pass above implicitly
     // creates a CGSCC pass manager, but we don't want to add extensions into

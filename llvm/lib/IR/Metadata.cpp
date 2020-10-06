@@ -388,11 +388,13 @@ void ValueAsMetadata::handleDeletion(Value *V) {
   delete MD;
 }
 
-void ValueAsMetadata::handleRAUW(Value *From, Value *To) {
+void ValueAsMetadata::handleRAUW(Value *From, Value *To, bool typecheck) {
   assert(From && "Expected valid value");
   assert(To && "Expected valid value");
   assert(From != To && "Expected changed value");
-  assert(From->getType() == To->getType() && "Unexpected type change");
+  if (typecheck) {
+    assert(From->getType() == To->getType() && "Unexpected type change");
+  }
 
   LLVMContext &Context = From->getType()->getContext();
   auto &Store = Context.pImpl->ValuesAsMetadata;

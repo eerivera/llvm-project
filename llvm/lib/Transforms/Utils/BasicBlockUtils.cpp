@@ -433,10 +433,10 @@ bool llvm::RemoveRedundantDbgInstrs(BasicBlock *BB) {
 }
 
 void llvm::ReplaceInstWithValue(BasicBlock::InstListType &BIL,
-                                BasicBlock::iterator &BI, Value *V) {
+                                BasicBlock::iterator &BI, Value *V, bool typecheck) {
   Instruction &I = *BI;
   // Replaces all of the uses of the instruction with uses of the value
-  I.replaceAllUsesWith(V);
+  I.replaceAllUsesWith(V, typecheck);
 
   // Make sure to propagate a name if there is one already.
   if (I.hasName() && !V->hasName())
@@ -447,7 +447,7 @@ void llvm::ReplaceInstWithValue(BasicBlock::InstListType &BIL,
 }
 
 void llvm::ReplaceInstWithInst(BasicBlock::InstListType &BIL,
-                               BasicBlock::iterator &BI, Instruction *I) {
+                               BasicBlock::iterator &BI, Instruction *I, bool typecheck) {
   assert(I->getParent() == nullptr &&
          "ReplaceInstWithInst: Instruction already inserted into basic block!");
 
@@ -460,15 +460,15 @@ void llvm::ReplaceInstWithInst(BasicBlock::InstListType &BIL,
   BasicBlock::iterator New = BIL.insert(BI, I);
 
   // Replace all uses of the old instruction, and delete it.
-  ReplaceInstWithValue(BIL, BI, I);
+  ReplaceInstWithValue(BIL, BI, I, typecheck);
 
   // Move BI back to point to the newly inserted instruction
   BI = New;
 }
 
-void llvm::ReplaceInstWithInst(Instruction *From, Instruction *To) {
+void llvm::ReplaceInstWithInst(Instruction *From, Instruction *To, bool typecheck) {
   BasicBlock::iterator BI(From);
-  ReplaceInstWithInst(From->getParent()->getInstList(), BI, To);
+  ReplaceInstWithInst(From->getParent()->getInstList(), BI, To, typecheck);
 }
 
 BasicBlock *llvm::SplitEdge(BasicBlock *BB, BasicBlock *Succ, DominatorTree *DT,

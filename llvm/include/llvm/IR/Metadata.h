@@ -381,7 +381,7 @@ public:
   LLVMContext &getContext() const { return V->getContext(); }
 
   static void handleDeletion(Value *V);
-  static void handleRAUW(Value *From, Value *To);
+  static void handleRAUW(Value *From, Value *To, bool typecheck = true);
 
 protected:
   /// Handle collisions after \a Value::replaceAllUsesWith().

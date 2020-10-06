@@ -18,26 +18,6 @@ using namespace llvm;
 const int FAKEPTR_NUM_BITS = 32;
 const std::string FAKEPTR_NAME = "FakePtr";
 
-// TODO - when integrating with LLVM, give myself a true backdoor to do this
-// ORRRRR build LLVM without assertions
-void ReplaceAllUsesWith_Unsafe(Argument *from, Argument *to) {
-  while (!from->use_empty()) {
-    auto &U = *from->use_begin();
-    U.set(to);
-  }
-  // from->eraseFromParent();
-}
-
-// TODO - when integrating with LLVM, give myself a true backdoor to do this
-// ORRRRR build LLVM without assertions
-void ReplaceInstWithInst_Unsafe(Instruction *from, Instruction *to) {
-  while (!from->use_empty()) {
-    auto &U = *from->use_begin();
-    U.set(to);
-  }
-  from->eraseFromParent();
-}
-
 void printType(const Type* t) {
   auto id = t->getTypeID();
   switch (id) {
@@ -300,8 +280,7 @@ namespace {
         for (auto oldArg = oldFun->arg_begin(), newArg = newFun->arg_begin();
              oldArg != oldFun->arg_end();
              ++oldArg, ++newArg) {
-          // oldArg->replaceAllUsesWith(&*newArg);
-          ReplaceAllUsesWith_Unsafe(oldArg, &*newArg);
+          oldArg->replaceAllUsesWith(&*newArg, false);
           newArg->takeName(&*oldArg);
         }
 
@@ -318,9 +297,8 @@ namespace {
           auto* oldStoreInst = getFirstArgStoreInst(*newFun, argi);
           if (oldStoreInst) {
             if (auto* oldAllocaInst = dyn_cast_or_null<AllocaInst>(oldStoreInst->getPointerOperand())) {
-              auto* newAllocaInst = new AllocaInst(fakeptr_t, 0, nullptr, MaybeAlign(4), "arg_fakeptr_alloca", oldAllocaInst);
-              // ReplaceInstWithInst(oldAllocaInst, newAllocaInst);
-              ReplaceInstWithInst_Unsafe(oldAllocaInst, newAllocaInst);
+              auto* newAllocaInst = new AllocaInst(fakeptr_t, 0, nullptr, MaybeAlign(4), "arg_fakeptr_alloca");
+              ReplaceInstWithInst(oldAllocaInst, newAllocaInst, false);
               auto* constantint = ConstantInt::get(int32arg_t, 0);
               std::vector<Value*> constantarray = {constantint, constantint};
               auto arrayref = ArrayRef<Value*>(constantarray);

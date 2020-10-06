@@ -256,7 +256,7 @@ public:
 private:
   void destroyValueName();
   enum class ReplaceMetadataUses { No, Yes };
-  void doRAUW(Value *New, ReplaceMetadataUses);
+  void doRAUW(Value *New, ReplaceMetadataUses, bool typecheck = true);
   void setNameImpl(const Twine &Name);
 
 public:
@@ -286,13 +286,13 @@ public:
   /// Go through the uses list for this definition and make each use point to
   /// "V" instead of "this".  After this completes, 'this's use list is
   /// guaranteed to be empty.
-  void replaceAllUsesWith(Value *V);
+  void replaceAllUsesWith(Value *V, bool typecheck = true);
 
   /// Change non-metadata uses of this to point to a new Value.
   ///
   /// Go through the uses list for this definition and make each use point to
   /// "V" instead of "this". This function skips metadata entries in the list.
-  void replaceNonMetadataUsesWith(Value *V);
+  void replaceNonMetadataUsesWith(Value *V, bool typecheck = true);
 
   /// Go through the uses list for this definition and make each use point
   /// to "V" if the callback ShouldReplace returns true for the given Use.

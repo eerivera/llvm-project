@@ -153,6 +153,8 @@ public:
   /// tests.
   const ModuleSummaryIndex *ImportSummary = nullptr;
 
+  bool UseFakePtr;
+
   bool DisableTailCalls;
   bool DisableUnrollLoops;
   bool SLPVectorize;

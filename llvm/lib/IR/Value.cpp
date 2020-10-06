@@ -396,18 +396,20 @@ static bool contains(Value *Expr, Value *V) {
 }
 #endif // NDEBUG
 
-void Value::doRAUW(Value *New, ReplaceMetadataUses ReplaceMetaUses) {
+void Value::doRAUW(Value *New, ReplaceMetadataUses ReplaceMetaUses, bool typecheck) {
   assert(New && "Value::replaceAllUsesWith(<null>) is invalid!");
   assert(!contains(New, this) &&
          "this->replaceAllUsesWith(expr(this)) is NOT valid!");
-  assert(New->getType() == getType() &&
-         "replaceAllUses of value with new value of different type!");
+  if (typecheck) {
+    assert(New->getType() == getType() &&
+          "replaceAllUses of value with new value of different type!");
+  }
 
   // Notify all ValueHandles (if present) that this value is going away.
   if (HasValueHandle)
     ValueHandleBase::ValueIsRAUWd(this, New);
   if (ReplaceMetaUses == ReplaceMetadataUses::Yes && isUsedByMetadata())
-    ValueAsMetadata::handleRAUW(this, New);
+    ValueAsMetadata::handleRAUW(this, New, typecheck);
 
   while (!materialized_use_empty()) {
     Use &U = *UseList;
@@ -427,12 +429,12 @@ void Value::doRAUW(Value *New, ReplaceMetadataUses ReplaceMetaUses) {
     BB->replaceSuccessorsPhiUsesWith(cast<BasicBlock>(New));
 }
 
-void Value::replaceAllUsesWith(Value *New) {
-  doRAUW(New, ReplaceMetadataUses::Yes);
+void Value::replaceAllUsesWith(Value *New, bool typecheck) {
+  doRAUW(New, ReplaceMetadataUses::Yes, typecheck);
 }
 
-void Value::replaceNonMetadataUsesWith(Value *New) {
-  doRAUW(New, ReplaceMetadataUses::No);
+void Value::replaceNonMetadataUsesWith(Value *New, bool typecheck) {
+  doRAUW(New, ReplaceMetadataUses::No, typecheck);
 }
 
 // Like replaceAllUsesWith except it does not handle constants or basic blocks.
