@@ -356,9 +356,44 @@ namespace {
         for (auto* load_inst: queued_loadinsts) {
           auto* gep_inst = dyn_cast<GetElementPtrInst>(load_inst->getPointerOperand());
           auto* prev_load_inst = dyn_cast<LoadInst>(gep_inst->getPointerOperand());
+          // TODO - check above, if failures, abort. This ties in with earlier question about restarting the loop each time.
+
+          int32_t field_index;
+          if (auto* maybe_index = dyn_cast<ConstantInt>(gep_inst->getOperand(gep_inst->getNumIndices()))) {
+            field_index = maybe_index->getZExtValue();
+          } else {
+            errs() << "UNDEFINED BEHAVIOR 1!!\n"; // TODO - make this an actual error
+            continue;
+          }
+          auto struct_name = getStrippedStructName(gep_inst->getPointerOperandType());
+
+          // need new: gep, then load, then call get()
+          auto* constantint = ConstantInt::get(int32arg_t, 0);
+          std::vector<Value*> constantarray = {constantint, constantint};
+          auto arrayref = ArrayRef<Value*>(constantarray);
+          auto* new_gep_inst = GetElementPtrInst::CreateInBounds(prev_load_inst->getPointerOperand(), arrayref);
+          auto* new_load_inst = new LoadInst(int32arg_t, new_gep_inst);
 
 
-          // errs() << *load_inst << "\n";
+          std::string ffi_func_name = "get_field_" + std::to_string(field_index) + "_in_" + struct_name + "_ffi";
+          // TODO - running into problems where I can't see header definitions in the Module unless they are used
+          auto ffi_func = M.getOrInsertFunction(ffi_func_name, load_inst->getType(), int32arg_t);
+          // if (!ffi_func) {
+          //   errs() << "UNDEFINED BEHAVIOR 2!!\n"; // TODO - make this an actual error
+          //   continue;
+          // }
+
+          std::vector<Value*> args_vector = {new_load_inst};
+          auto args_arrayref = ArrayRef<Value*>(args_vector);
+          auto* ffi_call_inst = CallInst::Create(ffi_func, args_arrayref);
+
+          ReplaceInstWithInst(load_inst, ffi_call_inst);
+          new_load_inst->insertBefore(ffi_call_inst);
+          new_gep_inst->insertBefore(new_load_inst);
+
+          gep_inst->eraseFromParent();
+          prev_load_inst->eraseFromParent();
+
         }
 
         // Fix queued StoreInsts
