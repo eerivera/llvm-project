@@ -1,4 +1,5 @@
 #include "llvm/InitializePasses.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
@@ -87,33 +88,6 @@ void blockProbing(const Function &f) {
   }
 }
 
-bool safeFuncProbing(const Function &f) {
-  argProbing(f);
-  blockProbing(f);
-  for (auto& block : f) {
-    for (auto& inst : block) {
-      errs() << "  Instr: " << inst << "\n";
-      // if (auto* callinst = dyn_cast<CallInst>(&inst)) {
-      //   printType(callinst->getType());
-      //   errs() << "\n";
-      // }
-    }
-  }
-  return false;
-}
-
-bool unsafeFuncProbing(const Function &f) {
-  argProbing(f);
-  blockProbing(f);
-  for (auto& block : f) {
-    for (auto& inst : block) {
-      errs() << "  Instr: " << inst << "\n";
-    }
-
-  }
-  return false;
-}
-
 std::string makeRealStructName(const std::string& structname) {
   return "struct." + structname;
 }
@@ -188,19 +162,6 @@ GetElementPtrInst* getFirstGetElemPtrToChange(Function& f, const std::vector<std
   return nullptr;
 }
 
-void correctGetInsts(LoadInst* inst) {
-  // errs() << "correctGetInsts: " << "\n";
-  // errs() << "  " << *inst << "\n";
-  // auto* prev_inst = inst->getPrevNonDebugInstruction();
-  // errs() << "  " << *prev_inst << "\n";
-  // auto* prev_prev_inst = prev_inst->getPrevNonDebugInstruction();
-  // errs() << "  " << *prev_prev_inst << "\n";
-}
-
-void correctSetInsts(StoreInst* inst) {
-
-}
-
 namespace {
   struct FakePtrPass : public ModulePass {
     static char ID;
@@ -224,9 +185,7 @@ namespace {
         if (oldFun->getInstructionCount() == 0) {
           // declarations (including llvm intrinsics) are also included in the module, this avoids those
           continue;
-        } 
-        errs() << "function name: " << oldFun->getName() << "\n";
-
+        }
 
         auto* oldFunTy = oldFun->getFunctionType();
         auto oldAttributeList = oldFun->getAttributes();
@@ -252,15 +211,8 @@ namespace {
         auto* newFunTy = FunctionType::get(newRetTy, params, oldFunTy->isVarArg());
         
         if (newFunTy == oldFunTy) {
-          errs() << "Nothing to do! \n";
-
-          // TODO - remove, only for debugging
-          safeFuncProbing(*oldFun);
-
           continue;
         }
-
-        unsafeFuncProbing(*oldFun);
 
         auto* newFun = Function::Create(newFunTy, oldFun->getLinkage(), oldFun->getAddressSpace());
         newFun->copyAttributesFrom(oldFun);
@@ -459,13 +411,17 @@ namespace {
         //   correctSetInsts(store_inst);
         //   // return transformation(f, structname);
         // }
-        errs() << "At least we could make the transformation?\n";
-        unsafeFuncProbing(*newFun);
-        verifyFunction(*newFun, &errs());
-        errs() << "\nMade it through safely (enough)\n";
+
+        // Verify produces the opposite answer of what you'd think
+        newFun->removeFnAttr(Attribute::OptimizeNone);
+        bool passesFuncCheck = verifyFunction(*newFun, &errs());
+        // errs() << "Passes Function Check: " << (passesFuncCheck ? "False" : "True") << "\n";
+        // errs() << newFun << "\n";
         isChanged = true;
       }
-      // bool passesCheck = verifyModule(M, &(errs()));
+      bool passesCheck = verifyModule(M, &(errs()));
+      // errs() << "Passes Module Check: " << (passesCheck ? "False" : "True") << "\n";
+      // errs() << M << "\n";
       return isChanged;
     }
   };
@@ -473,18 +429,9 @@ namespace {
 
 char FakePtrPass::ID = 0;
 INITIALIZE_PASS_BEGIN(FakePtrPass, "fakeptr", "FakePtr protection", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+// INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapper)
 INITIALIZE_PASS_END(FakePtrPass, "fakeptr", "FakePtr protection", false, false)
-// static RegisterPass<FakePtrPass> X("fakeptr", "Fake Ptr Pass");
-
-// static void registerFakePtrPass(const PassManagerBuilder &Builder, legacy::PassManagerBase &PM) {
-//   PM.add(new FakePtrPass());
-// }
-
-// static RegisterStandardPasses clangtoolLoader_Ox(PassManagerBuilder::EP_ModuleOptimizerEarly, registerFakePtrPass);
-// static RegisterStandardPasses clangtoolLoader_O0(PassManagerBuilder::EP_EnabledOnOptLevel0, registerFakePtrPass);
-// // static RegisterStandardPasses registerMyPass(PassManagerBuilder::EP_EarlyAsPossible, registerFakePtrPass);
 
 ModulePass* llvm::createFakePtrPass() {
   return new FakePtrPass();
